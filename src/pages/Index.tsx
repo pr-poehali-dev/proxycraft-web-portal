@@ -27,7 +27,6 @@ const Index = () => {
   const [loading, setLoading] = useState(true);
 
   const serverIP = 'mc.proxycraft.ru';
-  const API_URL = 'https://functions.poehali.dev/3ef20a11-5d8d-4049-be34-8190dd7d130a';
 
   const copyIP = () => {
     navigator.clipboard.writeText(serverIP);
@@ -41,29 +40,40 @@ const Index = () => {
 
   const fetchServerStatus = async () => {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
-      
-      const response = await fetch(`${API_URL}?host=${serverIP}&port=25565`, {
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
+      const response = await fetch(`https://api.mcsrvstat.us/3/${serverIP}`);
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
       const data = await response.json();
-      setServerStatus(data);
+      
+      if (data.online) {
+        setServerStatus({
+          online: true,
+          players: {
+            online: data.players?.online || 0,
+            max: data.players?.max || 0
+          },
+          version: data.version || 'Unknown',
+          motd: data.motd?.clean?.join('\n') || data.motd?.raw?.join('\n') || 'ProxyCraft Server'
+        });
+      } else {
+        setServerStatus({
+          online: false,
+          players: { online: 0, max: 0 },
+          version: 'Оффлайн',
+          motd: `Сервер ${serverIP} сейчас не в сети`
+        });
+      }
       setLoading(false);
     } catch (error) {
       console.error('Failed to fetch server status:', error);
       setServerStatus({
         online: false,
         players: { online: 0, max: 0 },
-        version: 'Недоступен',
-        motd: `Сервер ${serverIP} временно недоступен или не отвечает на запросы`
+        version: 'Ошибка',
+        motd: 'Не удалось получить статус сервера'
       });
       setLoading(false);
     }
