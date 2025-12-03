@@ -41,7 +41,19 @@ const Index = () => {
 
   const fetchServerStatus = async () => {
     try {
-      const response = await fetch(`${API_URL}?host=${serverIP}&port=25565`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      
+      const response = await fetch(`${API_URL}?host=${serverIP}&port=25565`, {
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const data = await response.json();
       setServerStatus(data);
       setLoading(false);
@@ -50,8 +62,8 @@ const Index = () => {
       setServerStatus({
         online: false,
         players: { online: 0, max: 0 },
-        version: 'Ошибка',
-        motd: 'Не удалось получить статус сервера'
+        version: 'Недоступен',
+        motd: `Сервер ${serverIP} временно недоступен или не отвечает на запросы`
       });
       setLoading(false);
     }
