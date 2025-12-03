@@ -18,14 +18,16 @@ interface ServerStatus {
 const Index = () => {
   const { toast } = useToast();
   const [serverStatus, setServerStatus] = useState<ServerStatus>({
-    online: true,
-    players: { online: 127, max: 500 },
-    version: '1.20.4',
-    motd: 'ProxyCraft - Лучший сервер для игры!'
+    online: false,
+    players: { online: 0, max: 0 },
+    version: 'Загрузка...',
+    motd: 'Загрузка статуса сервера...'
   });
   const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const serverIP = 'mc.proxycraft.ru';
+  const API_URL = 'https://functions.poehali.dev/3ef20a11-5d8d-4049-be34-8190dd7d130a';
 
   const copyIP = () => {
     navigator.clipboard.writeText(serverIP);
@@ -37,16 +39,30 @@ const Index = () => {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const fetchServerStatus = async () => {
+    try {
+      const response = await fetch(`${API_URL}?host=${serverIP}&port=25565`);
+      const data = await response.json();
+      setServerStatus(data);
+      setLoading(false);
+    } catch (error) {
+      console.error('Failed to fetch server status:', error);
+      setServerStatus({
+        online: false,
+        players: { online: 0, max: 0 },
+        version: 'Ошибка',
+        motd: 'Не удалось получить статус сервера'
+      });
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
+    fetchServerStatus();
+    
     const interval = setInterval(() => {
-      setServerStatus(prev => ({
-        ...prev,
-        players: {
-          ...prev.players,
-          online: Math.floor(Math.random() * 50) + 100
-        }
-      }));
-    }, 5000);
+      fetchServerStatus();
+    }, 10000);
 
     return () => clearInterval(interval);
   }, []);
@@ -154,59 +170,71 @@ const Index = () => {
             </h2>
 
             <Card className="glass-effect border-neon-cyan/30 p-8">
-              <div className="flex items-center justify-between mb-8">
-                <div className="flex items-center gap-4">
-                  <div className={`w-4 h-4 rounded-full ${serverStatus.online ? 'bg-green-500' : 'bg-red-500'} animate-pulse-glow`} />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Статус</p>
-                    <p className="text-2xl font-bold text-neon-cyan">
-                      {serverStatus.online ? 'Онлайн' : 'Оффлайн'}
-                    </p>
-                  </div>
+              {loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Icon name="Loader2" className="text-neon-cyan animate-spin" size={48} />
                 </div>
-                <Badge variant="outline" className="border-neon-purple text-neon-purple px-4 py-2 text-lg">
-                  {serverStatus.version}
-                </Badge>
-              </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between mb-8">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-4 h-4 rounded-full ${serverStatus.online ? 'bg-green-500' : 'bg-red-500'} animate-pulse-glow`} />
+                      <div>
+                        <p className="text-sm text-muted-foreground">Статус</p>
+                        <p className="text-2xl font-bold text-neon-cyan">
+                          {serverStatus.online ? 'Онлайн' : 'Оффлайн'}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="border-neon-purple text-neon-purple px-4 py-2 text-lg">
+                      {serverStatus.version}
+                    </Badge>
+                  </div>
+                </>
+              )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div className="glass-effect border border-neon-cyan/20 rounded-lg p-6">
-                  <div className="flex items-center gap-3 mb-2">
-                    <Icon name="Users" className="text-neon-cyan" size={24} />
-                    <p className="text-sm text-muted-foreground">Игроки онлайн</p>
-                  </div>
-                  <p className="text-4xl font-bold text-neon-cyan font-mono">
-                    {serverStatus.players.online} / {serverStatus.players.max}
-                  </p>
-                  <div className="mt-4 bg-muted rounded-full h-3 overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-neon-cyan to-neon-purple animate-pulse-glow"
-                      style={{ width: `${(serverStatus.players.online / serverStatus.players.max) * 100}%` }}
-                    />
-                  </div>
-                </div>
+              {!loading && (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div className="glass-effect border border-neon-cyan/20 rounded-lg p-6">
+                      <div className="flex items-center gap-3 mb-2">
+                        <Icon name="Users" className="text-neon-cyan" size={24} />
+                        <p className="text-sm text-muted-foreground">Игроки онлайн</p>
+                      </div>
+                      <p className="text-4xl font-bold text-neon-cyan font-mono">
+                        {serverStatus.players.online} / {serverStatus.players.max}
+                      </p>
+                      <div className="mt-4 bg-muted rounded-full h-3 overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-neon-cyan to-neon-purple animate-pulse-glow transition-all duration-500"
+                          style={{ width: `${serverStatus.players.max > 0 ? (serverStatus.players.online / serverStatus.players.max) * 100 : 0}%` }}
+                        />
+                      </div>
+                    </div>
 
-                <div className="glass-effect border border-neon-purple/20 rounded-lg p-6">
-                  <div className="flex items-center gap-3 mb-2">
-                    <Icon name="Activity" className="text-neon-purple" size={24} />
-                    <p className="text-sm text-muted-foreground">Производительность</p>
+                    <div className="glass-effect border border-neon-purple/20 rounded-lg p-6">
+                      <div className="flex items-center gap-3 mb-2">
+                        <Icon name="Activity" className="text-neon-purple" size={24} />
+                        <p className="text-sm text-muted-foreground">Версия сервера</p>
+                      </div>
+                      <p className="text-2xl font-bold text-neon-purple">
+                        {serverStatus.version}
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        {serverStatus.online ? 'Сервер работает стабильно' : 'Сервер недоступен'}
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-4xl font-bold text-neon-purple font-mono">
-                    20 TPS
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Отличная производительность
-                  </p>
-                </div>
-              </div>
 
-              <div className="glass-effect border border-neon-pink/20 rounded-lg p-6">
-                <div className="flex items-center gap-3 mb-3">
-                  <Icon name="MessageSquare" className="text-neon-pink" size={24} />
-                  <p className="text-sm text-muted-foreground">MOTD сервера</p>
-                </div>
-                <p className="text-lg text-foreground">{serverStatus.motd}</p>
-              </div>
+                  <div className="glass-effect border border-neon-pink/20 rounded-lg p-6">
+                    <div className="flex items-center gap-3 mb-3">
+                      <Icon name="MessageSquare" className="text-neon-pink" size={24} />
+                      <p className="text-sm text-muted-foreground">MOTD сервера</p>
+                    </div>
+                    <p className="text-lg text-foreground whitespace-pre-line">{serverStatus.motd}</p>
+                  </div>
+                </>
+              )}
             </Card>
           </div>
         </section>
